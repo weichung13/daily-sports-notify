@@ -27,11 +27,22 @@ def get_npb_games():
         soup = BeautifulSoup(resp.text, 'html.parser')
         
         games = []
-        # 針對 NPB 頁面結構優化
-        for text in soup.stripped_strings:
-            t = text.strip()
-            if any(time in t for time in [':00', '18:00', '13:00', '14:00']) and any(stadium in t for stadium in ['Jingu', 'Dome', 'FIELD', 'Mobile', 'Belluna']):
-                games.append(t)
+        # 改用更精準的方式抓比賽區塊
+        for row in soup.find_all('tr'):
+            cells = row.find_all('td')
+            if len(cells) >= 3:
+                text = ' '.join([cell.get_text().strip() for cell in cells])
+                if any(stadium in text for stadium in ['Jingu', 'Dome', 'FIELD', 'Mobile', 'Belluna']) or ':' in text:
+                    clean = ' '.join(text.split())
+                    games.append(clean)
+        
+        # 備用抓法
+        if not games:
+            for p in soup.find_all('p'):
+                t = p.get_text().strip()
+                if any(k in t for k in ['18:00', '18:30', '13:00', 'vs', 'Jingu', 'Dome']):
+                    games.append(t)
+        
         return games if games else ["今天沒有 NPB 比賽"]
     except Exception as e:
         return [f"NPB 爬取失敗: {str(e)}"]
@@ -44,11 +55,16 @@ def get_cpbl_games():
         soup = BeautifulSoup(resp.text, 'html.parser')
         
         games = []
-        for text in soup.stripped_strings:
-            t = text.strip()
-            if ('VS.' in t or 'vs' in t.lower()) and any(team in t for team in ['Brothers', 'Monkeys', 'Dragons', 'Guardians', 'Lions', 'Hawks', 'U-Lions']):
-                games.append(t)
-        return games[:8] if games else ["今天沒有 CPBL 比賽"]
+        # 針對 CPBL 表格和先發投手優化
+        rows = soup.find_all('tr')
+        for row in rows:
+            text = row.get_text().strip()
+            if any(team in text for team in ['Brothers', 'Monkeys', 'Dragons', 'Guardians', 'Lions', 'Hawks', 'U-Lions']) and ('18:35' in text or 'VS' in text or 'vs' in text):
+                # 清理並保留先發投手資訊
+                clean_text = ' '.join(text.split())
+                games.append(clean_text)
+        
+        return games if games else ["今天沒有 CPBL 比賽"]
     except Exception as e:
         return [f"CPBL 爬取失敗: {str(e)}"]
 
@@ -71,9 +87,9 @@ if __name__ == "__main__":
     npb = get_npb_games()
     cpbl = get_cpbl_games()
 
-    msg = f"⚾ {today_str} 棒球賽程\n\n"
-    msg += "【NPB 日本職棒】\n" + "\n".join([f"• {g}" for g in npb]) + "\n\n"
-    msg += "【CPBL 中華職棒】\n" + "\n".join([f"• {g}" for g in cpbl])
+    msg = f"⚾ {today_str} 棒球賽程通知\n\n"
+    msg += "【日本職棒 NPB】\n" + "\n".join([f"• {g}" for g in npb]) + "\n\n"
+    msg += "【中華職棒 CPBL】\n" + "\n".join([f"• {g}" for g in cpbl])
 
     send_to_line(msg)
     print("✅ 通知已發送")
