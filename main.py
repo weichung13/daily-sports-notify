@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 import pytz
 
-# === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_USER_ID = os.getenv('LINE_USER_ID')
 
@@ -15,10 +14,9 @@ TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
 today_md = now.strftime('%m/%d')        # 04/02
 today_md2 = now.strftime('%-m/%-d')     # 4/2
-today_md3 = "4/02"                      # 強制匹配
-today_md4 = now.strftime('%d')          # 02
+today_key = "4/02"                      # 強制匹配 4/02
 
-print(f"今天日期判斷: {today_md} / {today_md2} / {today_md3}")
+print(f"今天日期匹配關鍵字: {today_md} | {today_md2} | {today_key}")
 
 PDF_DIR = "pdfs"
 PDF_FILES = {
@@ -45,22 +43,21 @@ def extract_today_games(pdf_path, league_name):
 
                     # ==================== CPBL ====================
                     if league_name == "CPBL":
-                        # 只抓包含今天日期的行
-                        if any(d in line for d in [today_md, today_md2, today_md3, today_md4]):
+                        # 加強匹配 4/02 或 4/2
+                        if any(d in line for d in [today_key, today_md, today_md2, "4/02 (", "04/02"]):
                             if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
-                                # 清理，只保留對戰 + 球場
-                                if '先發' in line:
-                                    clean = line.split('先發')[0].strip()
-                                else:
-                                    clean = line
+                                # 只保留對戰 + 球場，移除先發投手資訊
+                                clean = line
+                                if '先發' in clean:
+                                    clean = clean.split('先發')[0].strip()
                                 clean = ' '.join(clean.split())
-                                if len(clean) > 8:
+                                if len(clean) > 10:
                                     games.append(clean)
 
                     # ==================== NPB ====================
                     else:
-                        # NPB PDF 日期格式較複雜，找包含時間和球場的行，並嘗試匹配日期
-                        if any(d in line for d in [today_md, today_md2, today_md3, "4/02", "04/02"]):
+                        # NPB 比較特別，找包含時間和球場，且接近今天日期的行
+                        if any(d in line for d in [today_key, today_md, today_md2, "4/02", "04/02"]):
                             if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ']):
                                 clean = ' '.join(line.split())
                                 if len(clean) > 15:
@@ -72,7 +69,7 @@ def extract_today_games(pdf_path, league_name):
 
 def send_to_line(message):
     if len(message) > 3800:
-        message = message[:3750] + "\n...(訊息過長已截斷)"
+        message = message[:3750] + "\n...(已截斷)"
 
     url = "https://api.line.me/v2/bot/message/push"
     headers = {
@@ -86,16 +83,16 @@ def send_to_line(message):
     try:
         resp = requests.post(url, headers=headers, json=data)
         print(f"LINE 發送狀態: {resp.status_code}")
-        if resp.status_code != 200:
-            print("錯誤回應:", resp.text)
-        else:
+        if resp.status_code == 200:
             print("✓ 成功發送到 LINE")
+        else:
+            print("錯誤回應:", resp.text)
     except Exception as e:
         print(f"發送失敗: {str(e)}")
 
 if __name__ == "__main__":
     print(f"執行時間：{now.strftime('%Y-%m-%d %H:%M:%S')} 台灣時間")
-    print(f"正在尋找 {today_md} 的比賽...")
+    print(f"正在尋找 {today_key} 的比賽...")
 
     cpbl = extract_today_games(PDF_FILES["CPBL"], "CPBL")
     central = extract_today_games(PDF_FILES["NPB_CENTRAL"], "NPB 中央")
