@@ -12,12 +12,13 @@ if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
-month_day = now.strftime('%m/%d')      # 04/02
-short_day = now.strftime('%-m/%-d')    # 4/2
-day_only = now.strftime('%d')          # 02
-month_only = now.strftime('%m')        # 04
 
-print(f"今天嚴格匹配: {month_day} | {short_day}")
+# 嚴格只匹配 4/02
+target_date = "4/02"
+target_date2 = "4/2"
+target_date3 = "04/02"
+
+print(f"嚴格尋找日期: {target_date} / {target_date2}")
 
 PDF_DIR = "pdfs"
 PDF_FILES = {
@@ -42,21 +43,21 @@ def extract_today_games(pdf_path, league_name):
                     if not line:
                         continue
 
-                    # ==================== CPBL - 嚴格只抓 4/02 ====================
+                    # ==================== CPBL - 極嚴格匹配 ====================
                     if league_name == "CPBL":
-                        if (f"4/02" in line or f"4/2" in line or f"04/02" in line or "4月2日" in line):
+                        if any(d in line for d in [target_date, target_date2, target_date3]):
                             if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
-                                # 只取對戰部分
-                                clean = line.split('先發')[0].strip() if '先發' in line else line
+                                clean = line
+                                if '先發' in clean:
+                                    clean = clean.split('先發')[0].strip()
                                 clean = ' '.join(clean.split())
-                                games.append(clean)
+                                if len(clean) > 10:
+                                    games.append(clean)
 
-                    # ==================== NPB - 處理特殊日期格式 ====================
+                    # ==================== NPB - 極嚴格匹配 ====================
                     else:
-                        # 找包含時間和球場，且可能屬於4月的行
-                        if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ', 'バンテリンドーム']):
-                            # 簡單過濾：如果行中有數字且不是其他月份，就加入
-                            if any(d in line for d in ['4/', '04/', '4月']) or day_only in line:
+                        if any(d in line for d in [target_date, target_date2, target_date3]):
+                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ']):
                                 clean = ' '.join(line.split())
                                 if len(clean) > 15:
                                     games.append(clean)
@@ -90,7 +91,7 @@ def send_to_line(message):
 
 if __name__ == "__main__":
     print(f"執行時間：{now.strftime('%Y-%m-%d %H:%M:%S')} 台灣時間")
-    print(f"嚴格尋找 {month_day} 的比賽...")
+    print(f"嚴格尋找 {target_date} 的比賽...")
 
     cpbl = extract_today_games(PDF_FILES["CPBL"], "CPBL")
     central = extract_today_games(PDF_FILES["NPB_CENTRAL"], "NPB 中央")
