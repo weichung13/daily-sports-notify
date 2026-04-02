@@ -2,6 +2,7 @@ import pdfplumber
 import requests
 import os
 from datetime import datetime
+import pytz
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_USER_ID = os.getenv('LINE_USER_ID')
@@ -9,21 +10,83 @@ LINE_USER_ID = os.getenv('LINE_USER_ID')
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
     raise ValueError("缺少 LINE Secrets")
 
-now = datetime.now()
-print(f"今天是: {now.strftime('%Y-%m-%d')}")
+TAIWAN_TZ = pytz.timezone('Asia/Taipei')
+now = datetime.now(TAIWAN_TZ)
+today_md = now.strftime('%m/%d')   # 04/02
 
-PDF_PATH = "pdfs/cpbl.pdf"
+PDF_DIR = "pdfs"
+PDF_FILES = {
+    "CPBL": os.path.join(PDF_DIR, "cpbl.pdf"),
+    "NPB_CENTRAL": os.path.join(PDF_DIR, "npb_central.pdf"),
+    "NPB_PACIFIC": os.path.join(PDF_DIR, "npb_pacific.pdf"),
+    "NPB_INTER": os.path.join(PDF_DIR, "npb.pdf")
+}
 
-print("=== CPBL PDF 中所有包含 '4/' 的行（用來診斷） ===")
-try:
-    with pdfplumber.open(PDF_PATH) as pdf:
-        for page_num, page in enumerate(pdf.pages, 1):
-            text = page.extract_text() or ""
-            for line in text.split('\n'):
-                line = line.strip()
-                if '4/' in line and any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
-                    print(f"頁 {page_num}: {line}")
-except Exception as e:
-    print("讀取 PDF 失敗:", str(e))
+def extract_today_games(pdf_path, league_name):
+    if not os.path.exists(pdf_path):
+        return [f"{league_name} PDF 不存在"]
 
-print("\n=== 程式執行結束 ===")
+    games = []
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text() or ""
+                for line in text.split('\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    if league_name == "CPBL":
+                        # 嚴格匹配 4/02 或 4/2
+                        if "4/02" in line or "4/2" in line or "04/02" in line:
+                            if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
+                                clean = line.split('先發')[0].strip() if '先發' in line else line
+                                clean = ' '.join(clean.split())
+                                games.append(clean)
+
+                    else:  # NPB
+                        if "4/02" in line or "4/2" in line or "04/02" in line:
+                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園']):
+                                clean = ' '.join(line.split())
+                                games.append(clean)
+
+        return games if games else [f"今天沒有 {league_name} 比賽"]
+    except Exception as e:
+        return [f"{league_name} 解析失敗"]
+
+def send_to_line(message):
+    if len(message) > 3800:
+        message = message[:3750] + "\n...(已截斷)"
+
+    url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
+    }
+    data = {
+        "to": LINE_USER_ID,
+        "messages": [{"type": "text", "text": message}]
+    }
+    try:
+        resp = requests.post(url, headers=headers, json=data)
+        print(f"LINE 發送狀態: {resp.status_code}")
+    except Exception as e:
+        print(f"發送失敗: {str(e)}")
+
+if __name__ == "__main__":
+    print(f"執行時間：{now.strftime('%Y-%m-%d %H:%M:%S')} 台灣時間")
+
+    cpbl = extract_today_games(PDF_FILES["CPBL"], "CPBL")
+    central = extract_today_games(PDF_FILES["NPB_CENTRAL"], "NPB 中央")
+    pacific = extract_today_games(PDF_FILES["NPB_PACIFIC"], "NPB 太平洋")
+    inter = extract_today_games(PDF_FILES["NPB_INTER"], "NPB 交流賽")
+
+    msg = f"⚾ {now.strftime('%Y-%m-%d')} 棒球賽程\n\n"
+
+    msg += "【NPB 中央聯盟】\n" + "\n".join([f"• {g}" for g in central]) + "\n\n"
+    msg += "【NPB 太平洋聯盟】\n" + "\n".join([f"• {g}" for g in pacific]) + "\n\n"
+    msg += "【NPB 交流賽】\n" + "\n".join([f"• {g}" for g in inter]) + "\n\n"
+    msg += "【CPBL 中華職棒】\n" + "\n".join([f"• {g}" for g in cpbl])
+
+    send_to_line(msg)
+    print("程式執行結束")
