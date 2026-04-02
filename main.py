@@ -12,7 +12,10 @@ if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
-today_md = now.strftime('%m/%d')   # 04/02
+today_month = now.strftime('%m')   # 04
+today_day = now.strftime('%d')     # 02   （兩位數）
+
+print(f"今天是 {today_month}/{today_day}，正在嚴格解析...")
 
 PDF_DIR = "pdfs"
 PDF_FILES = {
@@ -27,32 +30,46 @@ def extract_today_games(pdf_path, league_name):
         return [f"{league_name} PDF 不存在"]
 
     games = []
+    current_month = None
+
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
                 text = page.extract_text() or ""
-                for line in text.split('\n'):
+                lines = text.split('\n')
+
+                for line in lines:
                     line = line.strip()
                     if not line:
                         continue
 
+                    # ==================== CPBL ====================
                     if league_name == "CPBL":
-                        # 嚴格匹配 4/02 或 4/2
-                        if "4/02" in line or "4/2" in line or "04/02" in line:
+                        if f"4/{today_day}" in line or f"4/{int(today_day)}" in line or f"04/{today_day}" in line:
                             if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
                                 clean = line.split('先發')[0].strip() if '先發' in line else line
                                 clean = ' '.join(clean.split())
                                 games.append(clean)
 
-                    else:  # NPB
-                        if "4/02" in line or "4/2" in line or "04/02" in line:
-                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園']):
-                                clean = ' '.join(line.split())
-                                games.append(clean)
+                    # ==================== NPB - 特殊月/日格式 ====================
+                    else:
+                        # 偵測月份
+                        if '/' in line and len(line) < 20:
+                            if '4/' in line or '04/' in line:
+                                current_month = '4'
+
+                        # 如果目前月份是4月，且這一行有時間或球場，就可能是今天的比賽
+                        if current_month == '4':
+                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ']):
+                                # 額外檢查是否接近今天日期
+                                if today_day in line or f" {int(today_day)} " in f" {line} ":
+                                    clean = ' '.join(line.split())
+                                    if len(clean) > 15:
+                                        games.append(clean)
 
         return games if games else [f"今天沒有 {league_name} 比賽"]
     except Exception as e:
-        return [f"{league_name} 解析失敗"]
+        return [f"{league_name} 解析失敗: {str(e)}"]
 
 def send_to_line(message):
     if len(message) > 3800:
