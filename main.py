@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 import pytz
 
-# === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_USER_ID = os.getenv('LINE_USER_ID')
 
@@ -14,9 +13,9 @@ if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
 
-today_md = now.strftime('%m/%d')        # 04/09
-today_short = now.strftime('%-m/%-d')   # 4/9
-today_key = f"{int(now.month)}/{int(now.day)}"  # 4/9
+today_md = now.strftime('%m/%d')      # 04/09
+today_short = now.strftime('%-m/%-d') # 4/9
+today_key = f"{int(now.month)}/{int(now.day)}"
 
 print(f"今天是 {now.strftime('%Y-%m-%d')}，正在抓取 {today_md} 的比賽...")
 
@@ -36,14 +35,16 @@ def extract_today_games(pdf_path, league_name):
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
-                text = page.extract_text() or ""
-                lines = text.split('\n')
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
+                tables = page.extract_table()
+                if not tables:
+                    continue
 
-                    # ==================== CPBL ====================
+                for row in tables:
+                    if not row:
+                        continue
+                    line = ' '.join([str(cell) for cell in row if cell])
+                    line = line.strip()
+
                     if league_name == "CPBL":
                         if any(d in line for d in [today_md, today_short, today_key]):
                             if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
@@ -52,11 +53,9 @@ def extract_today_games(pdf_path, league_name):
                                 if len(clean) > 10:
                                     games.append(clean)
 
-                    # ==================== NPB (中央 / 太平洋 / 交流賽) ====================
-                    else:
-                        # 處理「4/1 下一行是 2」這種跨行格式
-                        if any(d in line for d in [today_md, today_short, today_key, f" {int(now.day)} "]):
-                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ', 'バンテリンドーム']):
+                    else:  # NPB
+                        if any(d in line for d in [today_md, today_short, today_key]):
+                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜']):
                                 clean = ' '.join(line.split())
                                 if len(clean) > 15:
                                     games.append(clean)
