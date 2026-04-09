@@ -14,11 +14,11 @@ if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
 
-today_md = now.strftime('%m/%d')      # 例如 04/02
-today_short = now.strftime('%-m/%-d') # 例如 4/2
-today_key = f"{int(now.month)}/{int(now.day)}"   # 例如 4/2
+today_md = now.strftime('%m/%d')        # 04/09
+today_short = now.strftime('%-m/%-d')   # 4/9
+today_key = f"{int(now.month)}/{int(now.day)}"  # 4/9
 
-print(f"今天日期: {now.strftime('%Y-%m-%d')} ({today_md})")
+print(f"今天是 {now.strftime('%Y-%m-%d')}，正在抓取 {today_md} 的比賽...")
 
 PDF_DIR = "pdfs"
 PDF_FILES = {
@@ -52,11 +52,11 @@ def extract_today_games(pdf_path, league_name):
                                 if len(clean) > 10:
                                     games.append(clean)
 
-                    # ==================== NPB ====================
+                    # ==================== NPB (中央 / 太平洋 / 交流賽) ====================
                     else:
-                        # 處理「4/1 下一行是 2」這種格式
+                        # 處理「4/1 下一行是 2」這種跨行格式
                         if any(d in line for d in [today_md, today_short, today_key, f" {int(now.day)} "]):
-                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ']):
+                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ', 'バンテリンドーム']):
                                 clean = ' '.join(line.split())
                                 if len(clean) > 15:
                                     games.append(clean)
