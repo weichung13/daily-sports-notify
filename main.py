@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import pytz
 
+# === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_USER_ID = os.getenv('LINE_USER_ID')
 
@@ -13,7 +14,11 @@ if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
 
-print(f"今天是 2026-04-02，正在嚴格解析...")
+today_md = now.strftime('%m/%d')      # 例如 04/02
+today_short = now.strftime('%-m/%-d') # 例如 4/2
+today_key = f"{int(now.month)}/{int(now.day)}"   # 例如 4/2
+
+print(f"今天日期: {now.strftime('%Y-%m-%d')} ({today_md})")
 
 PDF_DIR = "pdfs"
 PDF_FILES = {
@@ -38,22 +43,20 @@ def extract_today_games(pdf_path, league_name):
                     if not line:
                         continue
 
-                    # ==================== CPBL - 極嚴格匹配 ====================
+                    # ==================== CPBL ====================
                     if league_name == "CPBL":
-                        # 只接受 4/02 或 4/2 後面接空格、括號或結束
-                        if ("4/02" in line or "4/2 " in line or "4/2 (" in line or "04/02" in line):
+                        if any(d in line for d in [today_md, today_short, today_key]):
                             if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
                                 clean = line.split('先發')[0].strip() if '先發' in line else line
                                 clean = ' '.join(clean.split())
                                 if len(clean) > 10:
                                     games.append(clean)
 
-                    # ==================== NPB - 處理特殊日期格式 ====================
+                    # ==================== NPB ====================
                     else:
-                        # 找包含時間和球場，且可能屬於4月的行
-                        if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ', 'バンテリンドーム']):
-                            # 簡單過濾：如果行中有數字且不是其他月份，就加入
-                            if any(d in line for d in ['4/', '04/', '4月']) or day_only in line:
+                        # 處理「4/1 下一行是 2」這種格式
+                        if any(d in line for d in [today_md, today_short, today_key, f" {int(now.day)} "]):
+                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜', 'マツダ']):
                                 clean = ' '.join(line.split())
                                 if len(clean) > 15:
                                     games.append(clean)
@@ -82,14 +85,12 @@ def send_to_line(message):
         print(f"發送失敗: {str(e)}")
 
 if __name__ == "__main__":
-    print("執行 PDF 賽程解析...")
-
     cpbl = extract_today_games(PDF_FILES["CPBL"], "CPBL")
     central = extract_today_games(PDF_FILES["NPB_CENTRAL"], "NPB 中央")
     pacific = extract_today_games(PDF_FILES["NPB_PACIFIC"], "NPB 太平洋")
     inter = extract_today_games(PDF_FILES["NPB_INTER"], "NPB 交流賽")
 
-    msg = f"⚾ 2026-04-02 棒球賽程\n\n"
+    msg = f"⚾ {now.strftime('%Y-%m-%d')} 棒球賽程\n\n"
 
     msg += "【NPB 中央聯盟】\n" + "\n".join([f"• {g}" for g in central]) + "\n\n"
     msg += "【NPB 太平洋聯盟】\n" + "\n".join([f"• {g}" for g in pacific]) + "\n\n"
