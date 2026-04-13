@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 import pytz
-import google.genai as genai   # 使用新的 google-genai 套件
+from google import genai   # 使用新版 google-genai
 
 # === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -10,9 +10,10 @@ LINE_USER_ID = os.getenv('LINE_USER_ID')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
-    raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets 已設定 GEMINI_API_KEY")
+    raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
 
-genai.configure(api_key=GEMINI_API_KEY)
+# 初始化 Gemini
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
@@ -21,7 +22,7 @@ today = now.strftime('%Y-%m-%d')
 print(f"今天是 {today}，正在請 Gemini 查詢賽程...")
 
 def ask_gemini():
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = client.models.get('gemini-1.5-flash')
 
     prompt = f"""
 今天是 {today}（台灣時間）。
