@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 import pytz
-from google import genai   # 使用新版 google-genai
+from google import genai   # 必須使用這個 import
 
 # === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -12,7 +12,7 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
     raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
 
-# 初始化 Gemini
+# 初始化 Gemini Client（新版正確寫法）
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
@@ -22,8 +22,6 @@ today = now.strftime('%Y-%m-%d')
 print(f"今天是 {today}，正在請 Gemini 查詢賽程...")
 
 def ask_gemini():
-    model = client.models.get('gemini-1.5-flash')
-
     prompt = f"""
 今天是 {today}（台灣時間）。
 
@@ -41,7 +39,10 @@ def ask_gemini():
 只回覆今天的比賽，不要回覆其他日期。
 """
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents=prompt
+    )
     return response.text.strip()
 
 def send_to_line(message):
@@ -54,8 +55,11 @@ def send_to_line(message):
         "to": LINE_USER_ID,
         "messages": [{"type": "text", "text": message}]
     }
-    resp = requests.post(url, headers=headers, json=data)
-    print(f"LINE 發送狀態: {resp.status_code}")
+    try:
+        resp = requests.post(url, headers=headers, json=data)
+        print(f"LINE 發送狀態: {resp.status_code}")
+    except Exception as e:
+        print(f"發送失敗: {str(e)}")
 
 if __name__ == "__main__":
     gemini_reply = ask_gemini()
