@@ -40,19 +40,19 @@ def ask_gemini():
 """
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         print(f"錯誤: {str(e)}")
         # 如果 gemini-1.5-flash 失敗，嘗試其他模型
         try:
-            print("嘗試使用 gemini-2.0-flash...")
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            print("嘗試使用 gemini-2.5-flash...")
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = model.generate_content(prompt)
             return response.text.strip()
         except Exception as e2:
-            print(f"gemini-2.0-flash 也失敗: {str(e2)}")
+            print(f"gemini-2.5-flash 也失敗: {str(e2)}")
             raise
 
 def send_to_line(message):
