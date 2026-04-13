@@ -39,11 +39,11 @@ def ask_gemini():
 """
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')   # 使用較穩定的 1.5-flash
+        model = genai.GenerativeModel('gemini-2.5-flash')   # 使用目前最穩定的 model
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
-        print(f"Gemini 呼叫失敗: {str(e)}")
+        print(f"Gemini 錯誤: {str(e)}")
         return "Gemini 查詢失敗，請稍後再試。"
 
 def send_to_line(message):
