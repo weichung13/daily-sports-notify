@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 import pytz
-from google import genai   # 必須使用這個 import
+from google import genai
 
 # === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -12,7 +12,7 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
     raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
 
-# 初始化 Gemini Client（新版正確寫法）
+# 初始化 Gemini Client
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
@@ -40,7 +40,7 @@ def ask_gemini():
 """
 
     response = client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-1.5-flash-latest',   # ← 改成 latest 版本
         contents=prompt
     )
     return response.text.strip()
