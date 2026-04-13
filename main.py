@@ -1,73 +1,49 @@
-import pdfplumber
 import requests
 import os
 from datetime import datetime
 import pytz
+import google.generativeai as genai
 
+# === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_USER_ID = os.getenv('LINE_USER_ID')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
-if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
-    raise ValueError("缺少 LINE Secrets")
+if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
+    raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
+
+genai.configure(api_key=GEMINI_API_KEY)
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
+today = now.strftime('%Y-%m-%d')
 
-today_md = now.strftime('%m/%d')      # 04/09
-today_short = now.strftime('%-m/%-d') # 4/9
-today_key = f"{int(now.month)}/{int(now.day)}"
+print(f"今天是 {today}，正在請 Gemini 查詢賽程...")
 
-print(f"今天是 {now.strftime('%Y-%m-%d')}，正在抓取 {today_md} 的比賽...")
+def ask_gemini():
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
-PDF_DIR = "pdfs"
-PDF_FILES = {
-    "CPBL": os.path.join(PDF_DIR, "cpbl.pdf"),
-    "NPB_CENTRAL": os.path.join(PDF_DIR, "npb_central.pdf"),
-    "NPB_PACIFIC": os.path.join(PDF_DIR, "npb_pacific.pdf"),
-    "NPB_INTER": os.path.join(PDF_DIR, "npb.pdf")
-}
+    prompt = f"""
+今天是 {today}（台灣時間）。
 
-def extract_today_games(pdf_path, league_name):
-    if not os.path.exists(pdf_path):
-        return [f"{league_name} PDF 不存在"]
+請告訴我今天的棒球和足球賽程，用以下格式回覆（如果沒有比賽就寫「今天沒有比賽」）：
 
-    games = []
-    try:
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                tables = page.extract_table()
-                if not tables:
-                    continue
+【NPB 日本職棒】
+• 時間 主隊 vs 客隊
 
-                for row in tables:
-                    if not row:
-                        continue
-                    line = ' '.join([str(cell) for cell in row if cell])
-                    line = line.strip()
+【CPBL 中華職棒】
+• 時間 主隊 vs 客隊
 
-                    if league_name == "CPBL":
-                        if any(d in line for d in [today_md, today_short, today_key]):
-                            if any(team in line for team in ['雄鷹', '桃猿', '兄弟', '統一', '富邦', '味全', '台鋼']):
-                                clean = line.split('先發')[0].strip() if '先發' in line else line
-                                clean = ' '.join(clean.split())
-                                if len(clean) > 10:
-                                    games.append(clean)
+【五大聯賽 + 歐冠 + 國家盃賽】
+• 時間 主隊 vs 客隊
 
-                    else:  # NPB
-                        if any(d in line for d in [today_md, today_short, today_key]):
-                            if any(k in line for k in ['18:', '14:', '13:', '東京ドーム', '神宮', '甲子園', '横浜']):
-                                clean = ' '.join(line.split())
-                                if len(clean) > 15:
-                                    games.append(clean)
+只回覆今天的比賽，不要回覆其他日期的比賽。
+"""
 
-        return games if games else [f"今天沒有 {league_name} 比賽"]
-    except Exception as e:
-        return [f"{league_name} 解析失敗: {str(e)}"]
+    response = model.generate_content(prompt)
+    return response.text.strip()
 
 def send_to_line(message):
-    if len(message) > 3800:
-        message = message[:3750] + "\n...(已截斷)"
-
     url = "https://api.line.me/v2/bot/message/push"
     headers = {
         "Content-Type": "application/json",
@@ -77,24 +53,14 @@ def send_to_line(message):
         "to": LINE_USER_ID,
         "messages": [{"type": "text", "text": message}]
     }
-    try:
-        resp = requests.post(url, headers=headers, json=data)
-        print(f"LINE 發送狀態: {resp.status_code}")
-    except Exception as e:
-        print(f"發送失敗: {str(e)}")
+    resp = requests.post(url, headers=headers, json=data)
+    print(f"LINE 發送狀態: {resp.status_code}")
 
 if __name__ == "__main__":
-    cpbl = extract_today_games(PDF_FILES["CPBL"], "CPBL")
-    central = extract_today_games(PDF_FILES["NPB_CENTRAL"], "NPB 中央")
-    pacific = extract_today_games(PDF_FILES["NPB_PACIFIC"], "NPB 太平洋")
-    inter = extract_today_games(PDF_FILES["NPB_INTER"], "NPB 交流賽")
+    gemini_reply = ask_gemini()
 
-    msg = f"⚾ {now.strftime('%Y-%m-%d')} 棒球賽程\n\n"
-
-    msg += "【NPB 中央聯盟】\n" + "\n".join([f"• {g}" for g in central]) + "\n\n"
-    msg += "【NPB 太平洋聯盟】\n" + "\n".join([f"• {g}" for g in pacific]) + "\n\n"
-    msg += "【NPB 交流賽】\n" + "\n".join([f"• {g}" for g in inter]) + "\n\n"
-    msg += "【CPBL 中華職棒】\n" + "\n".join([f"• {g}" for g in cpbl])
+    msg = f"⚾ {today} 棒球＆足球賽程\n\n"
+    msg += gemini_reply
 
     send_to_line(msg)
     print("程式執行結束")
