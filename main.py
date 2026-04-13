@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 import pytz
-from google import genai
+import google.generativeai as genai
 
 # === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -12,8 +12,8 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
     raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
 
-# 初始化 Gemini Client
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Configure Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
@@ -39,10 +39,9 @@ def ask_gemini():
 只回覆今天的比賽，不要回覆其他日期。
 """
 
-    response = client.models.generate_content(
-        model='gemini-1.5-flash-latest',   # ← 改成 latest 版本
-        contents=prompt
-    )
+    # Use the standard model name
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    response = model.generate_content(prompt)
     return response.text.strip()
 
 def send_to_line(message):
