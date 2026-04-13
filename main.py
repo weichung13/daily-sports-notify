@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime
 import pytz
-import google.generativeai as genai
+import google.genai as genai   # 使用新的 google-genai 套件
 
 # === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -10,7 +10,7 @@ LINE_USER_ID = os.getenv('LINE_USER_ID')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
-    raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
+    raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets 已設定 GEMINI_API_KEY")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -26,7 +26,7 @@ def ask_gemini():
     prompt = f"""
 今天是 {today}（台灣時間）。
 
-請告訴我今天的棒球和足球賽程，用以下格式回覆（如果沒有比賽就寫「今天沒有比賽」）：
+請用以下格式告訴我今天的棒球和足球賽程（如果沒有比賽就寫「今天沒有比賽」）：
 
 【NPB 日本職棒】
 • 時間 主隊 vs 客隊
@@ -34,10 +34,10 @@ def ask_gemini():
 【CPBL 中華職棒】
 • 時間 主隊 vs 客隊
 
-【五大聯賽 + 歐冠 + 國家盃賽】
+【五大聯賽＋歐冠＋國家盃賽】
 • 時間 主隊 vs 客隊
 
-只回覆今天的比賽，不要回覆其他日期的比賽。
+只回覆今天的比賽，不要回覆其他日期。
 """
 
     response = model.generate_content(prompt)
