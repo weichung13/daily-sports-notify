@@ -19,7 +19,7 @@ jobs:
           python-version: '3.11'
 
       - name: 安裝所需套件
-        run: pip install google-genai pytz requests
+        run: pip install google-generativeai pytz requests
 
       - name: 執行賽程通知腳本
         env:
