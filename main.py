@@ -24,34 +24,51 @@ print(f"今天是 {today}，正在請 Gemini 查詢賽程...")
 
 def ask_gemini():
     prompt = f"""
-現在是台灣時間 {today} 早上 09:00。
+台灣時間今天是 {today}。
 
-請根據你的知識，告訴我以下賽程：
+請根據你的知識，查詢這些賽程，並嚴格按照以下規則：
 
-**棒球賽程（中華職棒 CPBL 和日本職棒 NPB）：**
-- 只顯示 {today} 的比賽
+**重要：日期限制**
+- CPBL 和 NPB：只回覆 {today} 這一天的比賽時間表
+- 足球：回覆 {today} 的比賽，以及 {tomorrow} 凌晨 00:00-04:00 的比賽
 
-**足球賽程（五大聯賽、歐冠、杯賽等）：**
-- 顯示 {today} 的比賽
-- 以及 {tomorrow} 凌晨 0:00-04:00 台灣時間的比賽（也就是今晚到明天凌晨歐洲時間的比賽）
+**回覆格式：**
 
-格式如下（如果沒有比賽就寫「沒有比賽」）：
-
-【NPB 日本職棒】
+【CPBL 中華職棒】{today}
 • 時間 主隊 vs 客隊
+（如果 {today} 沒有比賽，寫「沒有比賽」）
 
-【CPBL 中華職棒】
+【NPB 日本職棒】{today}
 • 時間 主隊 vs 客隊
+（如果 {today} 沒有比賽，寫「沒有比賽」）
 
-【五大聯賽＋歐冠＋杯賽】
-• 時間 主隊 vs 客隊 (聯賽名稱)
+【足球五大聯賽＋歐冠＋杯賽】
+{today} 的比賽：
+• 時間 主隊 vs 客隊 (聯賽)
 
-足球部分要包含 {tomorrow} 凌晨 0:00-04:00 的比賽。
+{tomorrow} 凌晨 00:00-04:00 的比賽：
+• 時間 主隊 vs 客隊 (聯賽)
+
+（如果某天沒有比賽，寫「沒有比賽」）
+
+**注意：**
+- 不要混淆日期
+- 嚴格按照上面的日期篩選
+- 如果不確定日期，寫「日期不確定」而不要亂猜
 """
 
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')   # 使用目前最穩定的 model
-        response = model.generate_content(prompt)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # 添加生成配置參數，讓 API 更接近網頁版的行為
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                'temperature': 0.7,  # 平衡創意和準確性
+                'top_p': 0.95,       # 更接近網頁版
+                'max_output_tokens': 1024,
+            }
+        )
         return response.text.strip()
     except Exception as e:
         print(f"Gemini 錯誤: {str(e)}")
