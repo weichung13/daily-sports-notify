@@ -58,14 +58,14 @@ def ask_gemini():
 """
 
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-3-flash')  # 改成 Gemini 3
         
-        # 添加生成配置參數，讓 API 更接近網頁版的行為
+        # 添加生成配置參數
         response = model.generate_content(
             prompt,
             generation_config={
-                'temperature': 0.7,  # 平衡創意和準確性
-                'top_p': 0.95,       # 更接近網頁版
+                'temperature': 0.7,
+                'top_p': 0.95,
                 'max_output_tokens': 1024,
             }
         )
