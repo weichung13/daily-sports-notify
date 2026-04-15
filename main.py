@@ -58,7 +58,7 @@ def ask_gemini():
 """
 
     try:
-        model = genai.GenerativeModel('gemini-3-flash')  # 改成 Gemini 3
+        model = genai.GenerativeModel('gemini-3.1-pro-preview')
         
         # 添加生成配置參數
         response = model.generate_content(
