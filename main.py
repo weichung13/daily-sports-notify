@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime, timedelta
 import pytz
-import google.generativeai as genai
+from google import genai
 
 # === GitHub Secrets ===
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -12,7 +12,8 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID or not GEMINI_API_KEY:
     raise ValueError("缺少 LINE 或 Gemini API Key，請確認 GitHub Secrets")
 
-genai.configure(api_key=GEMINI_API_KEY)
+# 初始化新的 google-genai Client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 now = datetime.now(TAIWAN_TZ)
@@ -58,21 +59,24 @@ def ask_gemini():
 """
 
     try:
-        model = genai.GenerativeModel('gemini-3.1-pro-preview')
-        
-        # 添加生成配置參數
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                'temperature': 0.7,
-                'top_p': 0.95,
-                'max_output_tokens': 1024,
-            }
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
         )
         return response.text.strip()
     except Exception as e:
         print(f"Gemini 錯誤: {str(e)}")
-        return "Gemini 查詢失敗，請稍後再試。"
+        # 如果出錯，嘗試用更輕量的模型
+        try:
+            print("嘗試用 gemini-1.5-flash...")
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt
+            )
+            return response.text.strip()
+        except Exception as e2:
+            print(f"備選模型也失敗: {str(e2)}")
+            return "查詢失敗，請稍後再試。"
 
 def send_to_line(message):
     url = "https://api.line.me/v2/bot/message/push"
