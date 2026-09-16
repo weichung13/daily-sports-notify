@@ -1,4 +1,4 @@
-name: 每天早上9點棒球足球賽程通知
+name: 每天早上9點 FotMob 足球賽程通知
 
 on:
   schedule:
@@ -18,12 +18,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: 安裝所需套件
-        run: pip install google-generativeai pytz requests
+      - name: 驗證賽程處理
+        run: python -m unittest discover -s tests -v
 
       - name: 執行賽程通知腳本
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
-        run: python main.py
+        run: python main.py --send
