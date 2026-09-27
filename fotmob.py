@@ -52,6 +52,8 @@ def normalize(payloads, day, competitions=None):
                 continue
             for match in league['matches']:
                 status = match['status']
+                if status.get('finished'):
+                    continue
                 raw_time = status.get('utcTime')
                 if not raw_time:
                     raise ValueError(f'FotMob 比賽 {match.get("id")} 缺少開賽時間')
@@ -66,8 +68,6 @@ def normalize(payloads, day, competitions=None):
                     label = '取消'
                 elif 'postpon' in str(reason).lower():
                     label = '延期'
-                elif status.get('finished'):
-                    label = '已結束'
                 elif status.get('started'):
                     label = '進行中'
                 else:
@@ -87,16 +87,20 @@ def fetch_schedule(day):
 
 
 def format_schedule(day, matches):
-    lines = [f'⚽ {day:%m月%d日} 足球賽程', '台灣時間（Asia/Taipei）', '主隊 vs 客隊']
-    for offset in (0, 1):
-        target = day + timedelta(days=offset)
-        lines.append(f'\n【{target:%Y-%m-%d}' + (' 凌晨 00:00–04:00】' if offset else '】'))
-        selected = [m for m in matches if m['kickoff'].date() == target]
-        if not selected:
-            lines.append('沒有比賽')
+    tomorrow = day + timedelta(days=1)
+    lines = [f'⚽ {day:%m月%d日} 足球賽程',
+             f'{day:%m/%d} 至 {tomorrow:%m/%d} 凌晨 04:00｜台灣時間',
+             '主隊 vs 客隊']
+    groups = {}
+    for match in sorted(matches, key=lambda m: (m['kickoff'], m['id'])):
+        groups.setdefault(match['competition'], []).append(match)
+    if not groups:
+        lines.append('\n此時段沒有尚未結束的比賽')
+    for competition, selected in groups.items():
+        lines.append(f'\n【{competition}】')
         for match in selected:
             suffix = f' [{match["status"]}]' if match['status'] else ''
-            lines.append(f'• {match["kickoff"]:%H:%M} {match["home"]} vs '
-                         f'{match["away"]}（{match["competition"]}）{suffix}')
-    lines.append('\n資料來源：FotMob https://www.fotmob.com/')
+            lines.append(f'• {match["kickoff"]:%m/%d} '
+                         f'{match["kickoff"]:%H:%M} {match["home"]} vs '
+                         f'{match["away"]}{suffix}')
     return '\n'.join(lines)

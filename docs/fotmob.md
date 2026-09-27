@@ -30,3 +30,7 @@ GET /api/data/allLeagues?locale=en&country=TWN
 4. 更新 `fotmob.py` 與有代表性的測試，執行離線測試和不發 LINE 的實網預覽。增加賽事先從 `allLeagues` 確認 ID，再改 `competitions.json`。
 
 目前 LINE 發送與 GitHub Actions 雲端網路環境需要各自實際執行才能驗證；本機 HTTP 成功不代表所有執行環境都能存取。
+
+## 國家隊賽事（2026-09-27 確認）
+
+從 `allLeagues` 確認並加入 EURO `50`、EURO Qualification `10607`；UEFA Nations League A–D 為 `9806`–`9809`。目錄另列 A Qualification `10557`／`10717`、B Qualification `10558`／`10718`、C Qualification `10719`，一併納入。通知使用目錄英文名稱，女子與青年賽事未納入。

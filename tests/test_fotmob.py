@@ -30,7 +30,7 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual([m['id'] for m in result], ['2', '3'])
         self.assertEqual(result[0]['kickoff'].hour, 0)
         self.assertEqual(result[1]['kickoff'].hour, 4)
-        self.assertEqual(result[0]['competition'], '英格蘭聯賽杯')
+        self.assertEqual(result[0]['competition'], 'EFL Cup')
 
     def test_excluded_competition(self):
         self.assertEqual(normalize([payload([match(1, '2026-09-16T12:00:00Z')], 77)], DAY), [])
@@ -40,8 +40,34 @@ class ScheduleTests(unittest.TestCase):
                                            reason={'short': 'PP', 'long': 'Postponed'})])], DAY)
         self.assertEqual(result[0]['status'], '延期')
         text = format_schedule(DAY, result)
-        self.assertIn('2026-09-17 凌晨', text)
+        self.assertIn('09/17 03:00', text)
         self.assertIn('03:00 Home vs Away', text)
+
+    def test_finished_matches_excluded_even_without_time(self):
+        data = payload([match(1, None, finished=True),
+                        match(2, '2026-09-16T12:00:00Z', started=True),
+                        match(3, '2026-09-16T19:00:00Z', finished=False)])
+        result = normalize([data], DAY)
+        self.assertEqual([m['id'] for m in result], ['2', '3'])
+        self.assertEqual(result[0]['status'], '進行中')
+        self.assertNotIn('已結束', format_schedule(DAY, result))
+
+    def test_grouping_keeps_both_dates_and_english_names(self):
+        cup = payload([match(1, '2026-09-16T12:00:00Z'),
+                       match(3, '2026-09-16T19:00:00Z')])
+        league = payload([match(2, '2026-09-16T13:00:00Z')], 47)
+        text = format_schedule(DAY, normalize([cup, league], DAY))
+        self.assertEqual(text.count('【EFL Cup】'), 1)
+        self.assertEqual(text.count('【Premier League】'), 1)
+        self.assertLess(text.index('03:00 Home vs Away'), text.index('【Premier League】'))
+        self.assertIn('09/16 20:00 Home vs Away', text)
+        self.assertIn('09/17 03:00 Home vs Away', text)
+
+    def test_all_finished_has_no_empty_competition_heading(self):
+        result = normalize([payload([match(1, None, finished=True)])], DAY)
+        text = format_schedule(DAY, result)
+        self.assertIn('沒有尚未結束的比賽', text)
+        self.assertNotIn('【EFL Cup】', text)
 
     def test_bad_or_missing_time_fails(self):
         for value in (None, 'invalid', '2026-09-16T12:00:00'):
